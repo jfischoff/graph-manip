@@ -1,0 +1,3 @@
+:set -i./src -i./tests
+:set -Wall
+:load tests/Main.hs
