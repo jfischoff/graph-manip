@@ -81,12 +81,12 @@ eval ( AddEdge e i         ) = addEdge e i
 updateEdgeLabel :: (Graph g, Monad m) => e -> Env m g n e ()
 updateEdgeLabel e = do
     n <- gets _cxtNode
-    i <- gets  cxtEdge 
+    i <- gets  oppositeNode 
     cxtGraph . edgeLens n i ~= Just e 
     
 updateEdgeTarget :: (Graph g, Monad m) => Node -> Env m g n e ()
 updateEdgeTarget i = do
-    e <- currentEdgeLab
+    e <- gets currentEdgeLab
     deleteEdge
     eval $ AddEdge e i
     
@@ -103,7 +103,7 @@ deleteNode = do
 deleteEdge :: (Graph g, Monad m) => Env m g n e ()
 deleteEdge = do 
     n <- gets _cxtNode
-    i <- gets cxtEdge
+    i <- gets oppositeNode
     cxtGraph . edgeLens n i ~= Nothing 
 
 addNode :: (Graph g, Monad m) => n -> Env m g n e ()
@@ -136,11 +136,13 @@ nodeLens = undefined
 edgeLens :: (Graph gr) => Node -> Node -> Lens (gr a b) (Maybe b)
 edgeLens = undefined
 
-newNode :: (Graph gr, Monad m) => Env m g n e Node
+newNode :: (Graph gr, Monad m) => Env m gr n e Node
 newNode = gets $ head . newNodes 1 . _cxtGraph 
 
-cxtEdge :: GraphContext g a b
-cxtEdge = undefined 
+currentEdgeLab :: (Graph g) => GraphContext g n e -> e
+currentEdgeLab x = result where
+    start  = _cxtNode x
+    end    = oppositeNode x
+    result = labEdge x start end  
 
-currentEdgeLab = undefined
-
+labEdge = undefined
