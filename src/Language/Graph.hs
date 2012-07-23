@@ -5,22 +5,25 @@
 
 -}
 module Language.Graph where
-import Data.Graph.Inductive
+import Data.Graph.Inductive hiding (ap)
 import Language.PointedCycle
 --import Control.Compose
 import Control.Monad.RWS
-import Control.Monad.Error
+import Control.Monad.Error hiding (ap)
 --import Control.Monad.Trans.Either
 --import Data.Functor.Identity
-import Data.DList hiding (fromList, head)
---import Control.Applicative
+import Data.DList hiding (fromList, head, map)
+import Control.Applicative
 import Lens.Family2
 import Lens.Family2.Unchecked
 import Lens.Family2.TH
 import Control.Monad.ERWS
 import Lens.Family2.State.Lazy
 import Control.Comonad
-
+import Data.Composition
+import Data.Maybe
+import Data.Tuple.Select
+import Data.Tuple.Update
 
 data Config = Config {
         _cfgWrapEdges        :: Bool,
@@ -62,13 +65,16 @@ data Warning = FollowedSelfLoop
              | DeleteNodeHasEdges
              
 data Issue = W Warning
-               
+
+instance (Functor m, Error e, Monoid w, Monad m) => Applicative (ERWST e r w s m) where
+    pure  = return
+    (<*>) = ap               
     
 data Diagnostics = WrappedEdges
                     
 type Env f g a b = ERWST EvalError Config (DList Issue) (GraphContext g a b) f
                     
-eval :: (Graph g, Monad m) => Operation n e -> Env m g n e ()
+eval :: (Graph g, Monad m, Functor m) => Operation n e -> Env m g n e ()
 eval ( M movement          ) = evalMovement movement
 eval ( UpdateEdgeLabel  e  ) = updateEdgeLabel e
 eval ( UpdateEdgeTarget i  ) = updateEdgeTarget i
@@ -78,17 +84,19 @@ eval ( DeleteEdge          ) = deleteEdge
 eval ( AddNode n           ) = addNode n
 eval ( AddEdge e i         ) = addEdge e i
 
-updateEdgeLabel :: (Graph g, Monad m) => e -> Env m g n e ()
+
+
+updateEdgeLabel :: (Graph g, Monad m, Functor m) => e -> Env m g n e ()
 updateEdgeLabel e = do
-    n <- gets _cxtNode
-    i <- gets  oppositeNode 
-    cxtGraph . edgeLens n i ~= Just e 
-    
-updateEdgeTarget :: (Graph g, Monad m) => Node -> Env m g n e ()
+      n <- gets _cxtNode
+      i <- gets  oppositeNode 
+      cxtGraph . edgeLens n i ~= [e]
+       
+updateEdgeTarget :: (Graph g, Monad m, Functor m) => Node -> Env m g n e ()
 updateEdgeTarget i = do
-    e <- gets currentEdgeLab
+    es <- gets currentEdgeLab
     deleteEdge
-    eval $ AddEdge e i
+    mapM_ (eval . flip AddEdge i) es
     
 updateNode :: (Graph g, Monad m) => n -> Env m g n e ()
 updateNode nLab = do
@@ -104,7 +112,7 @@ deleteEdge :: (Graph g, Monad m) => Env m g n e ()
 deleteEdge = do 
     n <- gets _cxtNode
     i <- gets oppositeNode
-    cxtGraph . edgeLens n i ~= Nothing 
+    cxtGraph . edgeLens n i ~= [] 
 
 addNode :: (Graph g, Monad m) => n -> Env m g n e ()
 addNode nLab = do
@@ -114,7 +122,7 @@ addNode nLab = do
 addEdge :: (Graph g, Monad m) => e -> Node -> Env m g n e ()
 addEdge e i = do
     n <- gets _cxtNode
-    cxtGraph . edgeLens n i ~= Just e
+    cxtGraph . edgeLens n i ~= [e]
 
 evalMovement :: (Graph g, Monad m) => Movement -> Env m g n e ()
 evalMovement IncEdge    = cxtEdgeCxt %= inc 
@@ -131,18 +139,55 @@ oppositeNode :: (Graph g) => GraphContext g n e -> Node
 oppositeNode = extract . _cxtEdgeCxt
 
 nodeLens :: (Graph gr) => Node -> Lens (gr a b) (Maybe a)
-nodeLens = undefined
+nodeLens n = result where
+    result = undefined
+    --if the node doesn't exist getting returns nothing
+    --if it does exist get returns the lab
+    --setting always deletes the node if it exists
+    --  so that means decompose to contexts
+    --  edit the context
+    --  rebuild
 
-edgeLens :: (Graph gr) => Node -> Node -> Lens (gr a b) (Maybe b)
+edgeLens :: (Graph gr) => Node -> Node -> Lens (gr a b) ([b])
 edgeLens = undefined
 
 newNode :: (Graph gr, Monad m) => Env m gr n e Node
 newNode = gets $ head . newNodes 1 . _cxtGraph 
 
-currentEdgeLab :: (Graph g) => GraphContext g n e -> e
+currentEdgeLab :: (Graph g) => GraphContext g n e -> [e]
 currentEdgeLab x = result where
     start  = _cxtNode x
     end    = oppositeNode x
-    result = labEdge x start end  
+    result = x ^. cxtGraph . edgeLens start end  
 
-labEdge = undefined
+decompose :: (Graph gr) => gr a b -> [Context a b]
+decompose x = undefined
+
+compose :: (Graph gr) => [Context a b] -> gr a b
+compose x = undefined
+
+inEdgeContextLens :: Node -> Lens (Context a b) ([b])
+inEdgeContextLens node = undefined
+
+outEdgeContextLens :: Node -> Lens (Context a b) ([b])
+outEdgeContextLens node = mkLens get set where
+    --get
+    get = map snd . filter ((node==) . fst) . lpre'
+    --set
+    set x bs             = upd1 (newPre bs x) x
+    newPre bs x          = map swap $ oldPreMissingEdges x ++ zip (repeat node) bs
+    oldPreMissingEdges x = filter ((node/=) . fst) $ lpre' x
+
+nodeContextLens :: Lens (Context a b) (Maybe a)
+nodeContextLens node = undefined
+
+swap (x, y) = (y, x)
+
+
+
+
+
+
+
+
+
