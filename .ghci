@@ -1,3 +1,4 @@
 :set -i./src -i./tests
 :set -Wall
+:set -cpp -pgmPcpphs -optP--cpp
 :load tests/Main.hs

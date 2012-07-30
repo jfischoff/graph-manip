@@ -1,12 +1,15 @@
+{-# LANGUAGE DeriveDataTypeable, DeriveGeneric #-}
 module Language.PointedCycle where
 import Control.Comonad
+import GHC.Generics
+import Data.Data
 import Lens.Family2
 import Lens.Family2.Unchecked
 import Lens.Family2.TH
 import Data.List (tails, inits)
     
 data PointedCycle a = PointedCycle a [a] 
-    deriving (Eq, Ord, Show, Read)
+    deriving (Eq, Ord, Show, Read, Data, Typeable, Generic)
 
 instance Functor PointedCycle where
     fmap f (PointedCycle x xs) = PointedCycle (f x) $ fmap f xs
