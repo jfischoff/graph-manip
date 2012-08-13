@@ -1,5 +1,5 @@
 {-# LANGUAGE TypeOperators, TemplateHaskell, Rank2Types, LiberalTypeSynonyms, 
-    DeriveGeneric, DeriveDataTypeable, FlexibleContexts #-}
+    DeriveGeneric, DeriveDataTypeable, FlexibleContexts, KindSignatures #-}
 {-
     I am assuming that there is some way to order the edges. This makes sense for planar
     graphs. 
@@ -13,7 +13,7 @@ import Control.Monad.RWS
 import Control.Monad.Error hiding (ap)
 import Control.Monad.ERWS
 --import Data.Functor.Identity
-import Data.DList hiding (fromList, head, map, empty)
+import Data.DList hiding (fromList, head, map, empty, toList)
 import Control.Applicative hiding (empty)
 import Control.Lens
 import Control.Lens.TH
@@ -26,7 +26,11 @@ import Data.List
 import Data.Data
 import GHC.Generics
 import Control.Conditional
+import Data.Default
+import Data.DeriveTH
 
+instance Default Bool where
+    def = False
 
 data Config = Config {
         _cfgWrapEdges        :: Bool,
@@ -35,11 +39,14 @@ data Config = Config {
     deriving(Show, Eq, Read, Ord, Data, Typeable, Generic)
 
 $(makeLenses ''Config)
+$(derive makeDefault ''Config)
 
 data Direction = To
                | From
                | Uni
     deriving(Show, Eq, Read, Ord, Data, Typeable, Generic)
+
+$(derive makeDefault ''Direction)
     
 data DirectedEdge b = DirectedEdge {
         _target    :: Node,
@@ -49,6 +56,10 @@ data DirectedEdge b = DirectedEdge {
     deriving(Show, Eq, Read, Ord, Data, Typeable, Generic)
     
 $(makeLenses ''DirectedEdge)
+$(derive makeDefault ''DirectedEdge)
+
+toAdj :: DirectedEdge b -> (b, Node)
+toAdj = undefined
 
 type PointedEdges b = PointedCycle (DirectedEdge b)
 
@@ -59,7 +70,8 @@ data PointedContext a b = PointedContext {
     }
     deriving(Show, Eq, Read, Ord, Data, Typeable, Generic)
     
-$(makeLenses ''PointedContext)    
+$(makeLenses ''PointedContext) 
+$(derive makeDefault ''PointedContext)  
     
 data GraphContext g a b = GraphContext {
         _cxtContext    :: Maybe (PointedContext a b), -- Is Nothing if the graph is empty
@@ -68,6 +80,9 @@ data GraphContext g a b = GraphContext {
     deriving(Show, Eq, Read, Ord, Generic)
 
 $(makeLenses ''GraphContext)
+
+instance (Default (g a b)) => Default (GraphContext g a b) where
+    def = GraphContext def def
     
 data Movement = IncEdge  
               | DecEdge
@@ -101,11 +116,7 @@ data Warning = FollowedSelfLoop
              | MoveToNonExistantEdge
     deriving(Show, Eq, Read, Ord, Data, Typeable, Generic)
              
-data Issue = W Warning
-
-instance (Functor m, Monoid w, Monad m, Error e) => Applicative (ERWST e r w s m) where
-    pure  = return
-    (<*>) = ap               
+data Issue = W Warning           
     
 data Diagnostics = WrappedEdges
     deriving(Show, Eq, Read, Ord, Data, Typeable, Generic)
@@ -135,7 +146,7 @@ updateEdgeLabel e = do
       n <- getCxtNode
       i <- oppositeNode 
       
-      cxtGraph . edgeLens n i ^= [e]
+      cxtGraph . edgeLens n i .= [e]
        
 updateEdgeTarget :: (DynGraph g, Monad m, Functor m) 
                  => Node -> Env m g n e ()
@@ -147,32 +158,67 @@ updateEdgeTarget i = do
 updateNode :: (DynGraph g, Monad m) => n -> Env m g n e ()
 updateNode nLab = do
     n <- getCxtNode 
-    cxtContext . setJust . cxtNode . _2 ^= nLab
+    cxtContext . setJust . cxtNode . _2 .= nLab
     
 deleteNode :: (DynGraph g, Monad m) => Env m g n e ()
-deleteNode = do
-    n <- getCxtNode 
-    return $ error "deleteNode"
-    --I need to delete and then move on to the next context
+deleteNode = do 
+    oppositeNode <- oppositeNode
+    --if there is no opposite use the first
+    nextNode     <- liftM (mplus oppositeNode) $ getFirstNode 
+    cxtContext .= Nothing -- this is the actual delete 
+    --if there is no first (the graph is empty) do nothing
+    maybeM setNodeContext nextNode
+    
+
+maybeM action (Just x) = action x
+maybeM action Nothing  = return ()
+    
+getFirstNode :: (DynGraph g, Monad m) => Env m g n e Node
+getFirstNode = error "getFirstNode"
     
 deleteEdge :: (DynGraph g, Monad m) => Env m g n e ()
 deleteEdge = do 
     n <- getCxtNode
     i <- oppositeNode 
     
-    cxtGraph . edgeLens n i ^= [] 
+    cxtGraph . edgeLens n i .= [] 
 
 addNode :: (DynGraph g, Monad m) => n -> Env m g n e ()
 addNode nLab = do
     n <- newNode
-    return $ error "addNode"
+    combineContext
+    cxtContext .= Just (PointedContext Nothing (n, nLab))
+
+getAsContext :: (DynGraph g, Monad m) => Env m g n e (Maybe (Context n e))
+getAsContext = do
+     cxt <- gets _cxtContext
+     let edges = case cxt of
+                    Just (PointedContext (Just xs) (n, nLab)) -> Just 
+                        (map toAdj . filter ((==To) . _direction) $ toList xs, 
+                        n,
+                        nLab,
+                        map toAdj . filter ((==From) . _direction) $ toList xs)
+                    _ -> Nothing 
+     return edges
+    
+    
+combineContext :: (DynGraph g, Monad m) => Env m g n e ()
+combineContext = do
+    --get the context
+    g   <- gets _cxtGraph
+    --combine it with the graph
+    combinedGraph <- maybe g (& g) `liftM` getAsContext 
+    --set the graph
+    cxtGraph .= combinedGraph
+    --set the context to Nothing
+    cxtContext .= Nothing
     
 addEdge :: (DynGraph g, Monad m) => e -> Node -> Env m g n e ()
 addEdge e i = do
     n <- getCxtNode
     i <- oppositeNode 
   
-    cxtGraph . edgeLens n i ^= [e]
+    cxtGraph . edgeLens n i .= [e]
 
 getCxtLabNode :: (DynGraph g, Monad m) => Env m g n e (LNode n)
 getCxtLabNode = do 
@@ -209,12 +255,13 @@ setNodeContext :: (Graph g) => Node -> GraphContext g n e -> GraphContext g n e
 setNodeContext node cxt = error "setNodeContext" --result where
 --    cxtEdgeCxt =~= (getEdgeNodeList node $ _cxtGraph cxt) $ cxt
 
---    result = cxtEdgeCxt =~= $ cxt
+--    result = cx tEdgeCxt =~= $ cxt
         
 getEdgeNodeList :: (Graph gr) => Node -> gr a b -> PointedCycle Node
 getEdgeNodeList n g = fromList $ neighbors g n 
 
-oppositeNode :: (Graph g, Monad m) => Env m g n e Node
+--TODO make this return a maybe and move the error reporting to the commands
+oppositeNode :: (Graph g, Monad m) => Env m g n e (Maybe Node)
 oppositeNode = liftM (_target . extract) $ note EdgeOperationWithNonexistantEdge 
     =<< gets (join . fmap _cxtEdges . _cxtContext)
 
@@ -242,7 +289,7 @@ edgeLens start end = result where
         (Nothing,  graph) -> error $ "Node " ++ show start ++ " is not in graph"
         
     set g labs = case match start g of
-        (Just cxt, graph) -> (outEdgeContextLens end ^~ labs $ cxt) & graph
+        (Just cxt, graph) -> (outEdgeContextLens end .~ labs $ cxt) & graph
         (Nothing,  graph) -> error $ "Node " ++ show start ++ "is not in graph"
     
 newNode :: (Graph gr, Monad m) => Env m gr n e Node
@@ -253,9 +300,6 @@ currentEdgeLab = do
     start <- getCxtNode 
     end   <- oppositeNode
     use $ cxtGraph . edgeLens start end
-
---inEdgeContextLens :: Node -> Lens (Context a b) ([b])
---inEdgeContextLens node = undefined
 
 outEdgeContextLens :: Node -> Simple Lens (Context a b) ([b])
 outEdgeContextLens node = lens get set where
@@ -275,8 +319,6 @@ decompose x = map (context x) $ nodes x
 compose :: (Graph gr, DynGraph gr) => [Context a b] -> gr a b
 compose xs = foldl' (flip (&)) empty xs
 
---nodeContextLens :: Lens (Context a b) (Maybe a)
---nodeContextLens node = undefined
 
 
 

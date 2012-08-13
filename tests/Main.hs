@@ -156,23 +156,23 @@ propGrRefl x = x == x
 -- view l (set l b a)  = b        
 propSetGetLens :: (Eq b, Show a, Show b) 
                =>  SimpleLens a b -> a -> b -> Result
-propSetGetLens l a b = if ((l ^~ b $ a) ^. l) == b 
+propSetGetLens l a b = if ((l .~ b $ a) ^. l) == b 
     then succeeded
     else failed {reason = " propSetGetLens a = " ++ show a ++ ", b = " ++ show b ++ 
-                    " (l ^~ b $ a) = " ++ show (l ^~ b $ a) ++ 
-                    " (l ^~ b $ a) ^. l " ++ show ((l ^~ b $ a) ^. l)}
+                    " (l .~ b $ a) = " ++ show (l .~ b $ a) ++ 
+                    " (l .~ b $ a) ^. l " ++ show ((l .~ b $ a) ^. l)}
 --  set l (view l a) a  = a
 propGetSetLens :: (Show a, Show b) 
                => (a -> a -> Bool) -> SimpleLens a b -> a -> Result
-propGetSetLens eq l a = if (l ^~ (a ^. l) $ a) `eq` a
+propGetSetLens eq l a = if (l .~ (a ^. l) $ a) `eq` a
     then succeeded
     else failed {reason = " propGetSetLens a = " ++ show a ++ 
         " (a ^. l) = " ++ show (a ^. l) ++ 
-        " (l ^~ (a ^. l) $ a) = " ++ show (l ^~ (a ^. l) $ a)}
+        " (l .~ (a ^. l) $ a) = " ++ show (l .~ (a ^. l) $ a)}
 --  set l c (set l b a) = set l c a
 propSetSetEqualSet :: (Show a, Show b) 
                    => (a -> a -> Bool) -> SimpleLens a b -> a -> b -> b -> Result
-propSetSetEqualSet eq l a b c = if (l ^~ c $ l ^~ b $ a) `eq` (l ^~ c $ a) 
+propSetSetEqualSet eq l a b c = if (l .~ c $ l .~ b $ a) `eq` (l .~ c $ a) 
     then succeeded
     else failed {reason = " propSetSetEqualSet: a = " ++ show a ++ ", b = " 
                             ++ show b ++ ", c = " ++ show c }
@@ -221,10 +221,10 @@ isBad (MkResult (Just True) _ _ _ _ _) = False
 isBad _ = True
 
 lGetSet :: SimpleLens a b -> a -> a
-lGetSet l a = l ^~ (a ^. l) $ a
+lGetSet l a = l .~ (a ^. l) $ a
 
 lSetSet :: SimpleLens a b -> a -> b -> b -> a
-lSetSet l a b c = l ^~ c $ l ^~ b $ a
+lSetSet l a b c = l .~ c $ l .~ b $ a
 
 --This fails for a good reason. When I delete the Nodes
 -- I also delete the edges
@@ -236,7 +236,7 @@ testSetSetNodeLens = actual @?= expected where
              ([],                2,  2, []),
              ([(-1, 2), (0, 0)], 3,  0, [])] :: Gr Int Int
 
-    expected = (nodeLens 2) ^~ 3 $ graph
+    expected = (nodeLens 2) .~ 3 $ graph
     
 testGetSetNodeLens = actual @?= expected where
     actual = lGetSet (nodeLens 2) graph 
