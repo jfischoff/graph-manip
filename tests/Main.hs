@@ -13,7 +13,6 @@ import Test.HUnit ((@?=), Assertion)
 import Data.Graph.Inductive
 import Test.QuickCheck.Instances.Tuple
 import Test.QuickCheck.Instances.List
-import Language.PointedCycle
 import Control.Applicative hiding (empty)
 import Data.List
 import Data.Monoid
