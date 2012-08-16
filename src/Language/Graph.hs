@@ -106,6 +106,7 @@ data EvalError = EdgeTargetDoesNotExist
                | GetLabelOnEmptyGraph
                | GetNodeOnEmptyGraph
                | EdgeOperationWithNonexistantEdge
+               | SetContextToNoneExistantNode
     deriving(Show, Eq, Read, Ord, Data, Typeable, Generic)
                
 data Warning = FollowedSelfLoop
@@ -144,7 +145,7 @@ updateEdgeLabel :: (DynGraph g, Monad m, Functor m)
                 => e -> Env m g n e ()
 updateEdgeLabel e = do
       n <- getCxtNode
-      i <- oppositeNode 
+      i <- join $ note EdgeTargetDoesNotExist <$> oppositeNode 
       
       cxtGraph . edgeLens n i .= [e]
        
@@ -162,9 +163,9 @@ updateNode nLab = do
     
 deleteNode :: (DynGraph g, Monad m) => Env m g n e ()
 deleteNode = do 
-    oppositeNode <- oppositeNode
+    oppositeNode' <- oppositeNode
     --if there is no opposite use the first
-    nextNode     <- liftM (mplus oppositeNode) $ getFirstNode 
+    nextNode      <- liftM (mplus oppositeNode') $ getFirstNode 
     cxtContext .= Nothing -- this is the actual delete 
     --if there is no first (the graph is empty) do nothing
     maybeM setNodeContext nextNode
@@ -173,13 +174,18 @@ deleteNode = do
 maybeM action (Just x) = action x
 maybeM action Nothing  = return ()
     
-getFirstNode :: (DynGraph g, Monad m) => Env m g n e Node
-getFirstNode = error "getFirstNode"
+getFirstNode :: (DynGraph g, Monad m) => Env m g n e (Maybe Node)
+getFirstNode = do 
+    g <- gets _cxtGraph
+    
+    case nodes g of
+        []     -> return Nothing
+        (x:xs) -> return $ Just x
     
 deleteEdge :: (DynGraph g, Monad m) => Env m g n e ()
 deleteEdge = do 
     n <- getCxtNode
-    i <- oppositeNode 
+    i <- join $ note EdgeTargetDoesNotExist `liftM` oppositeNode 
     
     cxtGraph . edgeLens n i .= [] 
 
@@ -216,7 +222,7 @@ combineContext = do
 addEdge :: (DynGraph g, Monad m) => e -> Node -> Env m g n e ()
 addEdge e i = do
     n <- getCxtNode
-    i <- oppositeNode 
+    i <- join $ note EdgeTargetDoesNotExist `liftM` oppositeNode 
   
     cxtGraph . edgeLens n i .= [e]
 
@@ -242,28 +248,38 @@ hasEdges = gets (isJust . join . fmap _cxtEdges . _cxtContext )
 setJust :: Simple Setter (Maybe a) a         
 setJust = sets fmap    
     
-evalMovement :: (Graph g, Monad m) => Movement -> Env m g n e ()
+evalMovement :: (DynGraph g, Monad m) => Movement -> Env m g n e ()
 evalMovement IncEdge    = ifM hasEdges 
                                 (cxtContext . setJust . cxtEdges . setJust %= inc) $ 
                                 tell $ singleton $ W MoveToNonExistantEdge
 evalMovement DecEdge    = ifM hasEdges 
                                 (cxtContext . setJust . cxtEdges . setJust %= dec) $ 
                                 tell $ singleton $ W MoveToNonExistantEdge 
-evalMovement FollowEdge = modify . setNodeContext =<< oppositeNode  
+evalMovement FollowEdge = setNodeContext
+                        =<< (join $ note EdgeTargetDoesNotExist `liftM` oppositeNode  )
 
-setNodeContext :: (Graph g) => Node -> GraphContext g n e -> GraphContext g n e 
-setNodeContext node cxt = error "setNodeContext" --result where
---    cxtEdgeCxt =~= (getEdgeNodeList node $ _cxtGraph cxt) $ cxt
-
---    result = cx tEdgeCxt =~= $ cxt
+setNodeContext :: (DynGraph g, Monad m) => Node -> Env m g n e ()
+setNodeContext node = do 
+    --the node must be in the graph
+    combineContext
+    decomp <- gets (match node . _cxtGraph)
+    case decomp of 
+        (Just cxt, graph) -> do
+                                cxtGraph   .= graph
+                                cxtContext .= (Just $ cxtToPointedCxt cxt)
+        _                 -> throwError SetContextToNoneExistantNode
+       
+cxtToPointedCxt :: Context n e -> PointedContext n e
+cxtToPointedCxt = error "cxtToPointedCxt"
         
 getEdgeNodeList :: (Graph gr) => Node -> gr a b -> PointedCycle Node
 getEdgeNodeList n g = fromList $ neighbors g n 
 
 --TODO make this return a maybe and move the error reporting to the commands
 oppositeNode :: (Graph g, Monad m) => Env m g n e (Maybe Node)
-oppositeNode = liftM (_target . extract) $ note EdgeOperationWithNonexistantEdge 
-    =<< gets (join . fmap _cxtEdges . _cxtContext)
+oppositeNode = do 
+    cxt <- gets (join . fmap _cxtEdges . _cxtContext)
+    return $  (_target . extract) <$> cxt
 
 --I might have to check that the node is the next node
 nodeLens :: (Graph gr, DynGraph gr) => Node -> Simple Lens (gr a b) a
@@ -298,7 +314,7 @@ newNode = gets $ head . newNodes 1 . _cxtGraph
 currentEdgeLab :: (Graph gr, DynGraph gr, Monad m) => Env m gr n e [e]
 currentEdgeLab = do
     start <- getCxtNode 
-    end   <- oppositeNode
+    end   <- join $ note EdgeTargetDoesNotExist `liftM` oppositeNode
     use $ cxtGraph . edgeLens start end
 
 outEdgeContextLens :: Node -> Simple Lens (Context a b) ([b])
