@@ -121,15 +121,212 @@ allTests = M.fromList $ [
                 TEST_PROP(propGrRefl                       ),
                 TEST_CASE(testGetSetNodeLens               ),
                 TEST_CASE(testSetSetNodeLens               ),
-            --]),
-            --("arbitraries are valid", M.fromList $ [
-                TEST_PROP(propGrArbitraryIsValid   )
-                --TEST_PROP(propPointedContextIsValid),
-                --TEST_PROP(propGraphContextIsValid  )
+                TEST_CASE(test_eval                        ),
+                TEST_CASE(test_getOppositeNode             ),
+                TEST_CASE(test_updateEdgeLabel             ),
+                TEST_CASE(test_updateEdgeTarget            ),
+                TEST_CASE(test_updateNode                  ),
+                TEST_CASE(test_deleteNode                  ),
+                TEST_CASE(test_maybeM                      ),
+                TEST_CASE(test_getFirstNode                ),
+                TEST_CASE(test_deleteEdge                  ),
+                TEST_CASE(test_addNode                     ),
+                TEST_CASE(test_getAsContext                ),
+                TEST_CASE(test_combineContext              ),
+                TEST_CASE(test_addEdge                     ),
+                TEST_CASE(test_getCxtLabNode               ),
+                TEST_CASE(test_getCxtLab                   ),
+                TEST_CASE(test_getCxtNode                  ),
+                TEST_CASE(test_hasEdges                    ),
+                TEST_CASE(test_setJust                     ),
+                TEST_CASE(test_evalMovement                ),
+                TEST_CASE(test_setNodeContext              ),
+                TEST_CASE(test_getEdgeNodeList             ),
+                TEST_CASE(test_oppositeNode                ),
+                TEST_CASE(test_nodeLens                    ),   
+                TEST_CASE(test_edgeLens                    ),
+                TEST_CASE(test_newNode                     ),
+                TEST_CASE(test_currentEdgeLab              ),
+                TEST_CASE(test_outEdgeContextLens          ),
+                TEST_CASE(test_decompose                   ),
+                TEST_CASE(test_compose                     ),
+                TEST_CASE(test_toAdj                       ),                         
+                TEST_CASE(test_fromAdj                     ),
+                TEST_CASE(test_cxtToPointedCxt             ),
+                TEST_PROP(propDecomposeComposeRoundTrip    ),
+                TEST_PROP(propFromToAdjTrip                ),
+                TEST_PROP(propFromToPointedCxtRoundTrip    ),                            
+                TEST_PROP(propGrArbitraryIsValid           ),
+                TEST_PROP(propAddDeleteNode                ),
+                TEST_PROP(propAddDeleteEdge                )
+
             
             ])
             
         ]
+        
+propAddDeleteNode = undefined
+propAddDeleteEdge = undefined   
+         
+test_eval = actual @?= expected where
+   actual   = undefined
+   expected = undefined
+   initial  = undefined
+            
+test_getOppositeNode  = actual @?= expected where
+      actual   = undefined
+      expected = undefined
+      initial  = undefined 
+              
+test_updateEdgeLabel  = actual @?= expected where
+     actual   = undefined
+     expected = undefined
+     initial  = undefined    
+             
+test_updateEdgeTarget = actual @?= expected where
+    actual   = undefined
+    expected = undefined
+    initial  = undefined      
+       
+test_updateNode = actual @?= expected where
+    actual   = undefined
+    expected = undefined
+    initial  = undefined      
+               
+test_deleteNode = actual @?= expected where
+    actual   = undefined
+    expected = undefined
+    initial  = undefined 
+                        
+test_maybeM = actual @?= expected where
+    actual   = undefined
+    expected = undefined
+    initial  = undefined
+                             
+test_getFirstNode = actual @?= expected where
+    actual   = undefined
+    expected = undefined
+    initial  = undefined         
+           
+test_deleteEdge = actual @?= expected where 
+    actual   = undefined
+    expected = undefined
+    initial  = undefined
+                    
+test_addNode  = actual @?= expected where                  
+    actual   = undefined
+    expected = undefined
+    initial  = undefined
+    
+test_getAsContext = actual @?= expected where                
+    actual   = undefined
+    expected = undefined
+    initial  = undefined
+    
+test_combineContext = actual @?= expected where              
+    actual   = undefined
+    expected = undefined
+    initial  = undefined
+    
+test_addEdge = actual @?= expected where                     
+    actual   = undefined
+    expected = undefined
+    initial  = undefined
+    
+test_getCxtLabNode = actual @?= expected where               
+    actual   = undefined
+    expected = undefined
+    initial  = undefined
+    
+test_getCxtLab = actual @?= expected where                   
+    actual   = undefined
+    expected = undefined
+    initial  = undefined
+    
+test_getCxtNode = actual @?= expected where                  
+    actual   = undefined
+    expected = undefined
+    initial  = undefined
+    
+test_hasEdges = actual @?= expected where                            
+    actual   = undefined
+    expected = undefined
+    initial  = undefined
+    
+test_setJust = actual @?= expected where                     
+    actual   = undefined
+    expected = undefined
+    initial  = undefined
+    
+test_evalMovement = actual @?= expected where                
+    actual   = undefined
+    expected = undefined
+    initial  = undefined
+
+test_setNodeContext = actual @?= expected where              
+    actual   = undefined
+    expected = undefined
+    initial  = undefined
+    
+test_getEdgeNodeList = actual @?= expected where             
+    actual   = undefined
+    expected = undefined
+    initial  = undefined
+    
+test_oppositeNode = actual @?= expected where                
+    actual   = undefined
+    expected = undefined
+    initial  = undefined
+
+test_nodeLens = actual @?= expected where                    
+    actual   = undefined
+    expected = undefined
+    initial  = undefined
+    
+test_edgeLens = actual @?= expected where                    
+    actual   = undefined
+    expected = undefined
+    initial  = undefined
+    
+test_newNode = actual @?= expected where                     
+    actual   = undefined
+    expected = undefined
+    initial  = undefined
+    
+test_currentEdgeLab = actual @?= expected where              
+    actual   = undefined
+    expected = undefined
+    initial  = undefined
+    
+test_outEdgeContextLens = actual @?= expected where          
+    actual   = undefined
+    expected = undefined
+    initial  = undefined
+    
+test_decompose = actual @?= expected where                   
+    actual   = undefined
+    expected = undefined
+    initial  = undefined
+    
+test_compose = actual @?= expected where                     
+    actual   = undefined
+    expected = undefined
+    initial  = undefined
+
+test_toAdj = actual @?= expected where
+    actual   = undefined
+    expected = undefined
+    initial  = undefined
+        
+test_fromAdj = actual @?= expected where
+    actual   = undefined
+    expected = undefined
+    initial  = undefined
+
+test_cxtToPointedCxt = actual @?= expected where
+    actual   = undefined
+    expected = undefined
+    initial  = undefined
          
 defaultConfig = TestConfig True [] [] 
 
